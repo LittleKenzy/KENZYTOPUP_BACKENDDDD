@@ -27,14 +27,14 @@ const app = express();
 app.use(helmet());
 
 // CORS — whitelist frontend origins
-app.use(
-  cors({
-    origin: env.CORS_ORIGINS,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
+const corsOptions = {
+  origin: env.CORS_ORIGINS,
+  credentials: true,
+  optionsSuccessStatus: 200, // penting untuk Vercel Serverless
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Tangkap semua OPTIONS preflight
 
 // Rate limiting global
 app.use(generalLimiter);
@@ -156,25 +156,27 @@ app.use((_req, res) => {
 // ─── GLOBAL ERROR HANDLER (harus terakhir) ───
 app.use(errorHandler);
 
-// ─── START SERVER ────────────────────────────
-app.listen(env.PORT, () => {
-  console.log('');
-  console.log('╔══════════════════════════════════════════╗');
-  console.log('║       🛒 KENZY STORE BACKEND API        ║');
-  console.log('╠══════════════════════════════════════════╣');
-  console.log(`║  Status  : Running ✅                    ║`);
-  console.log(`║  Port    : ${String(env.PORT).padEnd(29)}║`);
-  console.log(`║  Env     : ${String(env.NODE_ENV).padEnd(29)}║`);
-  console.log(`║  URL     : http://localhost:${String(env.PORT).padEnd(13)}║`);
-  console.log('╠══════════════════════════════════════════╣');
-  console.log('║  Endpoints:                              ║');
-  console.log('║  • /api/health         — Health check    ║');
-  console.log('║  • /api/auth/*         — Auth            ║');
-  console.log('║  • /api/products/*     — Products        ║');
-  console.log('║  • /api/transactions/* — Transactions    ║');
-  console.log('║  • /api/admin/*        — Admin panel     ║');
-  console.log('╚══════════════════════════════════════════╝');
-  console.log('');
-});
+// ─── START SERVER (Lokal saja, untuk Vercel di-export) ───
+if (env.NODE_ENV !== 'production') {
+  app.listen(env.PORT, () => {
+    console.log('');
+    console.log('╔══════════════════════════════════════════╗');
+    console.log('║       🛒 KENZY STORE BACKEND API        ║');
+    console.log('╠══════════════════════════════════════════╣');
+    console.log(`║  Status  : Running ✅                    ║`);
+    console.log(`║  Port    : ${String(env.PORT).padEnd(29)}║`);
+    console.log(`║  Env     : ${String(env.NODE_ENV).padEnd(29)}║`);
+    console.log(`║  URL     : http://localhost:${String(env.PORT).padEnd(13)}║`);
+    console.log('╠══════════════════════════════════════════╣');
+    console.log('║  Endpoints:                              ║');
+    console.log('║  • /api/health         — Health check    ║');
+    console.log('║  • /api/auth/*         — Auth            ║');
+    console.log('║  • /api/products/*     — Products        ║');
+    console.log('║  • /api/transactions/* — Transactions    ║');
+    console.log('║  • /api/admin/*        — Admin panel     ║');
+    console.log('╚══════════════════════════════════════════╝');
+    console.log('');
+  });
+}
 
 module.exports = app;
