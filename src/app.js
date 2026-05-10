@@ -28,7 +28,14 @@ app.use(helmet());
 
 // CORS — whitelist frontend origins
 const corsOptions = {
-  origin: env.CORS_ORIGINS,
+  origin: function (origin, callback) {
+    // Izinkan Postman, localhost, atau domain apa pun dari vercel.app
+    if (!origin || origin.includes('localhost') || origin.includes('vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200, // penting untuk Vercel Serverless
 };
