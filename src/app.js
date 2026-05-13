@@ -3,6 +3,13 @@
 // ============================================
 
 const express = require('express');
+
+// ── Fix: Force IPv4 for ALL fetch/HTTP calls (Supabase, etc.) ──
+// Node.js 24 uses undici for fetch, which tries IPv6 first.
+// On networks where IPv6 DNS is broken, this causes "fetch failed".
+// This forces undici to ONLY use IPv4 connections.
+const { setGlobalDispatcher, Agent } = require('undici');
+setGlobalDispatcher(new Agent({ connect: { family: 4 } }));
 const helmet = require('helmet');
 const cors = require('cors');
 const env = require('./config/env');
@@ -18,6 +25,9 @@ const productRoutes = require('./modules/products/product.route');
 const transactionRoutes = require('./modules/transactions/transaction.route');
 const transactionController = require('./modules/transactions/transaction.controller');
 const productController = require('./modules/products/product.controller');
+const qrisController = require('./modules/qris/qris.controller');
+const { uploadQrisImage } = require('./middleware/upload');
+const { ensureBuckets } = require('./config/supabase');
 
 const app = express();
 
@@ -71,6 +81,9 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/transactions', transactionRoutes);
+
+// Public: ambil gambar QRIS toko (tidak perlu login)
+app.get('/api/qris', qrisController.getQris);
 
 // ═══════════════════════════════════════════════
 // ADMIN-ONLY ENDPOINTS
@@ -152,6 +165,21 @@ app.patch(
   productController.reactivateProduct
 );
 
+// --- Admin: QRIS management ---
+app.post(
+  '/api/admin/qris',
+  authenticate,
+  authorize('admin'),
+  uploadQrisImage,
+  qrisController.setQris
+);
+app.patch(
+  '/api/admin/qris/toggle',
+  authenticate,
+  authorize('admin'),
+  qrisController.toggleQris
+);
+
 // ─── 404 HANDLER ─────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({
@@ -165,7 +193,7 @@ app.use(errorHandler);
 
 // ─── START SERVER (Lokal saja, untuk Vercel di-export) ───
 if (env.NODE_ENV !== 'production') {
-  app.listen(env.PORT, () => {
+  app.listen(env.PORT, async () => {
     console.log('');
     console.log('╔══════════════════════════════════════════╗');
     console.log('║       🛒 KENZY STORE BACKEND API        ║');
@@ -183,6 +211,9 @@ if (env.NODE_ENV !== 'production') {
     console.log('║  • /api/admin/*        — Admin panel     ║');
     console.log('╚══════════════════════════════════════════╝');
     console.log('');
+
+    // Auto-create Supabase storage buckets
+    await ensureBuckets();
   });
 }
 

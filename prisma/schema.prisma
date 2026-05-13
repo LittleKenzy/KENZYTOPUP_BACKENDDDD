@@ -55,6 +55,7 @@ model Transaction {
   amount        Int      // jumlah dibeli (quantity)
   totalPrice    Int      // price * amount
   paymentMethod String   @default("CASH") // CASH, QRIS, DANA, SHOPEEPAY
+  paymentProof  String?  // URL bukti transfer QRIS (Supabase Storage)
   status        String   @default("PENDING") // PENDING, SUCCESS, FAILED
   externalRef   String?  // referensi payment gateway mock
   note          String?
@@ -63,6 +64,16 @@ model Transaction {
 
   user    User    @relation(fields: [userId], references: [id])
   product Product @relation(fields: [productId], references: [id])
+}
+
+// ─── QRIS SETTINGS ──────────────────────────
+// Singleton: hanya 1 row, berisi gambar QRIS toko
+model QrisSettings {
+  id        String   @id @default("qris-main")
+  imageUrl  String   // URL gambar QRIS toko (Supabase Storage)
+  label     String   @default("QRIS Kenzy Store") // nama yang ditampilkan
+  isActive  Boolean  @default(true)
+  updatedAt DateTime @updatedAt
 }
 
 // ─── REFRESH TOKEN ───────────────────────────

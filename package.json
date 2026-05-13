@@ -4,18 +4,25 @@
   "description": "Kenzy Store — Production-ready backend for digital top-up services (game, e-wallet, PLN token, pulsa, paket data)",
   "main": "src/app.js",
   "scripts": {
-    "dev": "nodemon src/app.js",
-    "start": "node src/app.js",
-    "seed": "node prisma/seed.js",
+    "dev": "nodemon --exec \"node --dns-result-order=ipv4first\" src/app.js",
+    "start": "node --dns-result-order=ipv4first src/app.js",
     "migrate": "npx prisma migrate dev --name init",
     "studio": "npx prisma studio",
     "postinstall": "prisma generate"
   },
-  "keywords": ["topup", "game", "ewallet", "pln", "pulsa", "kenzy"],
+  "keywords": [
+    "topup",
+    "game",
+    "ewallet",
+    "pln",
+    "pulsa",
+    "kenzy"
+  ],
   "author": "Kenzy Store",
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^6.8.2",
+    "@supabase/supabase-js": "^2.105.4",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
@@ -23,13 +30,13 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.1.1",
+    "sharp": "^0.34.5",
+    "undici": "^8.2.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.9",
     "prisma": "^6.8.2"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.js"
   }
 }

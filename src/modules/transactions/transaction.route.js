@@ -5,7 +5,7 @@
 const { Router } = require('express');
 const transactionController = require('./transaction.controller');
 const { authenticate } = require('../../middleware/auth');
-const { authorize } = require('../../middleware/role');
+const { uploadPaymentProof } = require('../../middleware/upload');
 
 const router = Router();
 
@@ -13,7 +13,8 @@ const router = Router();
 router.use(authenticate);
 
 // User routes
-router.post('/', transactionController.createTransaction);
+// POST /api/transactions — Buat transaksi (dengan optional upload bukti QRIS)
+router.post('/', uploadPaymentProof, transactionController.createTransaction);
 router.get('/', transactionController.listTransactions);
 router.get('/:id', transactionController.getTransaction);
 

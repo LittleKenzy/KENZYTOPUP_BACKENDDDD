@@ -31,7 +31,7 @@ async function listProducts({ category, operatorCode, search, page = 1, limit = 
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { price: 'asc' },
     }),
     prisma.product.count({ where }),
   ]);
@@ -129,7 +129,7 @@ async function listAllProducts({ category, operatorCode, search, page = 1, limit
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { price: 'asc' },
     }),
     prisma.product.count({ where }),
   ]);

@@ -4,10 +4,11 @@
 
 const crypto = require('crypto');
 const prisma = require('../../config/db');
+const { uploadFile, BUCKETS } = require('../../config/supabase');
 const { AppError } = require('../../middleware/errorHandler');
 
 // ─── CREATE TRANSACTION ─────────────────────
-async function createTransaction(userId, { productId, targetId, quantity, paymentMethod }) {
+async function createTransaction(userId, { productId, targetId, quantity, paymentMethod }, paymentProofFile) {
   // 1. Validasi produk aktif
   const product = await prisma.product.findUnique({
     where: { id: productId },
@@ -21,13 +22,29 @@ async function createTransaction(userId, { productId, targetId, quantity, paymen
     throw new AppError('Produk ini sedang tidak tersedia.', 400);
   }
 
-  // 2. Hitung total harga
+  // 2. Jika metode QRIS, bukti transfer WAJIB diupload
+  let paymentProofUrl = null;
+  if (paymentMethod === 'QRIS') {
+    if (!paymentProofFile) {
+      throw new AppError('Bukti transfer QRIS wajib diupload.', 400);
+    }
+
+    // Upload bukti ke Supabase Storage
+    const ext = paymentProofFile.originalname.split('.').pop();
+    const fileName = `proof-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
+    const filePath = `proofs/${userId}/${fileName}`;
+
+    const { url } = await uploadFile(BUCKETS.PAYMENT_PROOF, filePath, paymentProofFile.buffer, paymentProofFile.mimetype);
+    paymentProofUrl = url;
+  }
+
+  // 3. Hitung total harga
   const totalPrice = product.price * quantity;
 
-  // 3. Generate referensi eksternal (mock payment gateway)
+  // 4. Generate referensi eksternal (mock payment gateway)
   const externalRef = `KNZ-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
-  // 4. Buat transaksi dengan status PENDING
+  // 5. Buat transaksi dengan status PENDING
   //    Status akan diubah secara manual oleh Admin
   const transaction = await prisma.transaction.create({
     data: {
@@ -37,6 +54,7 @@ async function createTransaction(userId, { productId, targetId, quantity, paymen
       amount: quantity,
       totalPrice,
       paymentMethod,
+      paymentProof: paymentProofUrl,
       status: 'PENDING',
       externalRef,
       note: `Menunggu konfirmasi admin — ${product.name} x${quantity} untuk ${targetId} via ${paymentMethod}`,

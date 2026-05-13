@@ -16,7 +16,7 @@ const createTransactionSchema = z.object({
     .min(1, 'Target ID wajib diisi')
     .max(50, 'Target ID maksimal 50 karakter'),
   quantity: z
-    .number({ required_error: 'Jumlah wajib diisi' })
+    .coerce.number({ required_error: 'Jumlah wajib diisi' })
     .int('Jumlah harus bilangan bulat')
     .positive('Jumlah harus lebih dari 0')
     .max(100, 'Maksimal 100 per transaksi'),

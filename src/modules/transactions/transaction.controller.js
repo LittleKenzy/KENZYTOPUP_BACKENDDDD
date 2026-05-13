@@ -16,7 +16,8 @@ async function createTransaction(req, res, next) {
 
     const transaction = await transactionService.createTransaction(
       req.user.userId,
-      validated
+      validated,
+      req.file // Bukti QRIS (multer file object, bisa undefined jika bukan QRIS)
     );
 
     return res.status(201).json({
