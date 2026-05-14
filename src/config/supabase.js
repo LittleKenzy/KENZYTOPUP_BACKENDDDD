@@ -22,6 +22,7 @@ const supabase = createClient(supabaseUrl || '', supabaseServiceKey || '', {
 const BUCKETS = {
   PAYMENT_PROOF: 'payment-proofs',   // Bukti transfer QRIS dari user
   QRIS_IMAGE: 'qris-images',         // Gambar QRIS toko (admin upload)
+  NEWS_IMAGE: 'news-images',         // Gambar banner berita (admin upload)
 };
 
 /**

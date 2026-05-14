@@ -37,6 +37,15 @@ const uploadQrisImage = multer({
   },
 }).single('qrisImage'); // field name: "qrisImage"
 
+// Upload untuk gambar banner berita oleh admin (max 5MB)
+const uploadNewsImage = multer({
+  storage,
+  fileFilter: imageFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+}).single('newsImage'); // field name: "newsImage"
+
 // Wrapper agar multer error masuk ke error handler Express
 function handleMulterUpload(multerMiddleware) {
   return (req, res, next) => {
@@ -58,4 +67,5 @@ function handleMulterUpload(multerMiddleware) {
 module.exports = {
   uploadPaymentProof: handleMulterUpload(uploadPaymentProof),
   uploadQrisImage: handleMulterUpload(uploadQrisImage),
+  uploadNewsImage: handleMulterUpload(uploadNewsImage),
 };

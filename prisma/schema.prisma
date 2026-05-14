@@ -76,6 +76,19 @@ model QrisSettings {
   updatedAt DateTime @updatedAt
 }
 
+// ─── NEWS / PENGUMUMAN ──────────────────────
+// Berita / pengumuman toko, ditampilkan sebagai banner
+model News {
+  id          String   @id @default(uuid())
+  title       String           // Judul berita
+  content     String           // Isi berita
+  imageUrl    String?          // URL gambar banner (opsional, Supabase Storage)
+  isPublished Boolean  @default(false) // Draft / Published
+  isPinned    Boolean  @default(false) // Pin di atas
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 // ─── REFRESH TOKEN ───────────────────────────
 model RefreshToken {
   id        String   @id @default(uuid())

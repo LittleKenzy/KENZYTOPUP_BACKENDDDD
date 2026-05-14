@@ -26,7 +26,8 @@ const transactionRoutes = require('./modules/transactions/transaction.route');
 const transactionController = require('./modules/transactions/transaction.controller');
 const productController = require('./modules/products/product.controller');
 const qrisController = require('./modules/qris/qris.controller');
-const { uploadQrisImage } = require('./middleware/upload');
+const newsController = require('./modules/news/news.controller');
+const { uploadQrisImage, uploadNewsImage } = require('./middleware/upload');
 const { ensureBuckets } = require('./config/supabase');
 
 const app = express();
@@ -84,6 +85,9 @@ app.use('/api/transactions', transactionRoutes);
 
 // Public: ambil gambar QRIS toko (tidak perlu login)
 app.get('/api/qris', qrisController.getQris);
+
+// Public: ambil berita/pengumuman toko yang sudah dipublish
+app.get('/api/news', newsController.getPublishedNews);
 
 // ═══════════════════════════════════════════════
 // ADMIN-ONLY ENDPOINTS
@@ -178,6 +182,52 @@ app.patch(
   authenticate,
   authorize('admin'),
   qrisController.toggleQris
+);
+
+// --- Admin: News / Pengumuman management ---
+app.get(
+  '/api/admin/news',
+  authenticate,
+  authorize('admin'),
+  newsController.getAllNews
+);
+app.get(
+  '/api/admin/news/:id',
+  authenticate,
+  authorize('admin'),
+  newsController.getNewsById
+);
+app.post(
+  '/api/admin/news',
+  authenticate,
+  authorize('admin'),
+  uploadNewsImage,
+  newsController.createNews
+);
+app.put(
+  '/api/admin/news/:id',
+  authenticate,
+  authorize('admin'),
+  uploadNewsImage,
+  newsController.updateNews
+);
+app.delete(
+  '/api/admin/news/:id',
+  authenticate,
+  authorize('admin'),
+  newsController.deleteNews
+);
+app.patch(
+  '/api/admin/news/:id/publish',
+  authenticate,
+  authorize('admin'),
+  newsController.togglePublish
+);
+app.patch(
+  '/api/admin/news/:id/pin',
+  authenticate,
+  authorize('admin'),
+  newsController.togglePin
 );
 
 // ─── 404 HANDLER ─────────────────────────────
