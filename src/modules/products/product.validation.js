@@ -39,7 +39,7 @@ const queryProductSchema = z.object({
   operatorCode: z.string().optional(),
   search: z.string().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
-  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  limit: z.coerce.number().int().positive().max(5000).optional().default(20),
 });
 
 module.exports = { createProductSchema, updateProductSchema, queryProductSchema, DEFAULT_CATEGORIES };

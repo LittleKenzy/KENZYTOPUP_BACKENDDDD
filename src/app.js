@@ -27,6 +27,8 @@ const transactionController = require('./modules/transactions/transaction.contro
 const productController = require('./modules/products/product.controller');
 const qrisController = require('./modules/qris/qris.controller');
 const newsController = require('./modules/news/news.controller');
+const flashSaleController = require('./modules/flashsale/flashsale.controller');
+const loyaltyController = require('./modules/loyalty/loyalty.controller');
 const { uploadQrisImage, uploadNewsImage } = require('./middleware/upload');
 const { ensureBuckets } = require('./config/supabase');
 
@@ -88,6 +90,22 @@ app.get('/api/qris', qrisController.getQris);
 
 // Public: ambil berita/pengumuman toko yang sudah dipublish
 app.get('/api/news', newsController.getPublishedNews);
+
+// Public: ambil flash sale yang sedang aktif (dengan countdown)
+app.get('/api/flash-sales', flashSaleController.getActiveFlashSales);
+
+// Public: ambil pengaturan loyalty (info poin per belanja)
+app.get('/api/loyalty/config', loyaltyController.getLoyaltyConfig);
+
+// ═══════════════════════════════════════════════
+// USER-ONLY ENDPOINTS (perlu login)
+// ═══════════════════════════════════════════════
+
+// --- User: Loyalty / Poin ---
+app.get('/api/loyalty/my-points', authenticate, loyaltyController.getMyPoints);
+app.post('/api/loyalty/redeem', authenticate, loyaltyController.redeemPoints);
+app.post('/api/loyalty/validate-code', authenticate, loyaltyController.validateDiscountCode);
+app.get('/api/loyalty/my-redemptions', authenticate, loyaltyController.getMyRedemptions);
 
 // ═══════════════════════════════════════════════
 // ADMIN-ONLY ENDPOINTS
@@ -228,6 +246,70 @@ app.patch(
   authenticate,
   authorize('admin'),
   newsController.togglePin
+);
+
+// --- Admin: Flash Sale management ---
+app.get(
+  '/api/admin/flash-sales',
+  authenticate,
+  authorize('admin'),
+  flashSaleController.getAllFlashSales
+);
+app.get(
+  '/api/admin/flash-sales/:id',
+  authenticate,
+  authorize('admin'),
+  flashSaleController.getFlashSaleById
+);
+app.post(
+  '/api/admin/flash-sales',
+  authenticate,
+  authorize('admin'),
+  flashSaleController.createFlashSale
+);
+app.put(
+  '/api/admin/flash-sales/:id',
+  authenticate,
+  authorize('admin'),
+  flashSaleController.updateFlashSale
+);
+app.delete(
+  '/api/admin/flash-sales/:id',
+  authenticate,
+  authorize('admin'),
+  flashSaleController.deleteFlashSale
+);
+app.patch(
+  '/api/admin/flash-sales/:id/toggle',
+  authenticate,
+  authorize('admin'),
+  flashSaleController.toggleFlashSale
+);
+
+// --- Admin: Loyalty / Poin management ---
+app.get(
+  '/api/admin/loyalty/config',
+  authenticate,
+  authorize('admin'),
+  loyaltyController.getLoyaltyConfig
+);
+app.put(
+  '/api/admin/loyalty/config',
+  authenticate,
+  authorize('admin'),
+  loyaltyController.updateLoyaltyConfig
+);
+app.get(
+  '/api/admin/loyalty/stats',
+  authenticate,
+  authorize('admin'),
+  loyaltyController.getLoyaltyStats
+);
+app.get(
+  '/api/admin/loyalty/leaderboard',
+  authenticate,
+  authorize('admin'),
+  loyaltyController.getLoyaltyLeaderboard
 );
 
 // ─── 404 HANDLER ─────────────────────────────

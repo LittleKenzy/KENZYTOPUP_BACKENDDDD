@@ -23,6 +23,7 @@ const createTransactionSchema = z.object({
   paymentMethod: z.enum(PAYMENT_METHODS, {
     errorMap: () => ({ message: `Metode pembayaran harus salah satu dari: ${PAYMENT_METHODS.join(', ')}` }),
   }),
+  discountCode: z.string().optional(),
 });
 
 const queryTransactionSchema = z.object({

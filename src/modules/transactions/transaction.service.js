@@ -6,9 +6,11 @@ const crypto = require('crypto');
 const prisma = require('../../config/db');
 const { uploadFile, BUCKETS } = require('../../config/supabase');
 const { AppError } = require('../../middleware/errorHandler');
+const loyaltyService = require('../loyalty/loyalty.service');
+const flashSaleService = require('../flashsale/flashsale.service');
 
 // ─── CREATE TRANSACTION ─────────────────────
-async function createTransaction(userId, { productId, targetId, quantity, paymentMethod }, paymentProofFile) {
+async function createTransaction(userId, { productId, targetId, quantity, paymentMethod, discountCode }, paymentProofFile) {
   // 1. Validasi produk aktif
   const product = await prisma.product.findUnique({
     where: { id: productId },
@@ -38,13 +40,78 @@ async function createTransaction(userId, { productId, targetId, quantity, paymen
     paymentProofUrl = url;
   }
 
-  // 3. Hitung total harga
-  const totalPrice = product.price * quantity;
+  // 3. Cek flash sale aktif untuk produk ini
+  let finalPrice = product.price;
+  let appliedFlashSale = null;
 
-  // 4. Generate referensi eksternal (mock payment gateway)
+  try {
+    const flashSale = await flashSaleService.getActiveDiscountForProduct(
+      product.id,
+      product.category
+    );
+    if (flashSale) {
+      finalPrice = Math.round(product.price * (1 - flashSale.discountPercent / 100));
+      appliedFlashSale = {
+        id: flashSale.id,
+        title: flashSale.title,
+        discountPercent: flashSale.discountPercent,
+        originalPrice: product.price,
+        discountedPrice: finalPrice,
+      };
+    }
+  } catch (err) {
+    // Flash sale check gagal, gunakan harga normal
+    console.warn('⚠️ Flash sale check failed:', err.message);
+  }
+
+  // 4. Hitung total harga dasar
+  let totalPrice = finalPrice * quantity;
+
+  // 5. Validasi & terapkan kode diskon loyalty jika ada
+  let appliedDiscountCode = null;
+  let discountAmount = 0;
+  if (discountCode) {
+    try {
+      const redemption = await loyaltyService.validateDiscountCode(discountCode, userId);
+      discountAmount = redemption.discountAmount;
+      
+      // Validasi minimal belanja (misal: 2.5x dari nilai diskon, 10k -> 25k)
+      const minPurchase = discountAmount * 2.5;
+      if (totalPrice < minPurchase) {
+        throw new AppError(`Total belanja belum memenuhi syarat. Minimal belanja untuk voucher ini adalah Rp${minPurchase.toLocaleString('id-ID')}`, 400);
+      }
+
+      appliedDiscountCode = discountCode;
+      
+      // Potong harga, tapi tidak boleh minus
+      totalPrice = Math.max(0, totalPrice - discountAmount);
+      
+      // Tandai kode diskon sudah dipakai
+      await loyaltyService.useDiscountCode(discountCode);
+    } catch (err) {
+      throw new AppError(`Gagal menggunakan kode diskon: ${err.message}`, 400);
+    }
+  }
+
+  // 6. Generate referensi eksternal (mock payment gateway)
   const externalRef = `KNZ-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
-  // 5. Buat transaksi dengan status PENDING
+  // 7. Buat note termasuk info flash sale & loyalty jika ada
+  let noteText = `Menunggu konfirmasi admin — ${product.name} x${quantity} untuk ${targetId} via ${paymentMethod}`;
+  
+  const additionalNotes = [];
+  if (appliedFlashSale) {
+    additionalNotes.push(`🏷️ ${appliedFlashSale.title}: diskon ${appliedFlashSale.discountPercent}%`);
+  }
+  if (appliedDiscountCode) {
+    additionalNotes.push(`🎁 Tukar Poin: potongan Rp${discountAmount.toLocaleString()}`);
+  }
+  
+  if (additionalNotes.length > 0) {
+    noteText += ` (${additionalNotes.join(', ')})`;
+  }
+
+  // 8. Buat transaksi dengan status PENDING
   //    Status akan diubah secara manual oleh Admin
   const transaction = await prisma.transaction.create({
     data: {
@@ -57,7 +124,7 @@ async function createTransaction(userId, { productId, targetId, quantity, paymen
       paymentProof: paymentProofUrl,
       status: 'PENDING',
       externalRef,
-      note: `Menunggu konfirmasi admin — ${product.name} x${quantity} untuk ${targetId} via ${paymentMethod}`,
+      note: noteText,
     },
     include: {
       product: {
@@ -66,7 +133,11 @@ async function createTransaction(userId, { productId, targetId, quantity, paymen
     },
   });
 
-  return transaction;
+  // Tambahkan info flash sale ke response
+  return {
+    ...transaction,
+    appliedFlashSale,
+  };
 }
 
 // ─── LIST USER TRANSACTIONS ─────────────────
@@ -237,7 +308,24 @@ async function updateTransactionStatus(transactionId, { status, note }) {
     `📦 Transaction ${transactionId}: Status diubah ke ${status} oleh Admin`
   );
 
-  return transaction;
+  // 4. Jika status berubah ke SUCCESS, berikan poin loyalty
+  let pointsResult = null;
+  if (status === 'SUCCESS' && existing.status !== 'SUCCESS') {
+    try {
+      pointsResult = await loyaltyService.awardPoints(
+        existing.userId,
+        existing.totalPrice,
+        transactionId
+      );
+    } catch (err) {
+      console.warn(`⚠️ Gagal memberikan poin loyalty: ${err.message}`);
+    }
+  }
+
+  return {
+    ...transaction,
+    pointsResult,
+  };
 }
 
 function getDefaultNote(status) {
