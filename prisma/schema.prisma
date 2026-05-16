@@ -24,10 +24,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  transactions     Transaction[]
-  refreshTokens    RefreshToken[]
-  loyaltyPoints    LoyaltyPoints?
-  pointRedemptions PointRedemption[]
+  transactions       Transaction[]
+  refreshTokens      RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  loyaltyPoints      LoyaltyPoints?
+  pointRedemptions   PointRedemption[]
 }
 
 // ─── PRODUCT ─────────────────────────────────
@@ -99,6 +100,19 @@ model RefreshToken {
   userId    String
   token     String   @unique
   expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── PASSWORD RESET TOKEN ───────────────────
+// Token untuk fitur lupa password (reset password via email)
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique   // Token unik (crypto random hex)
+  expiresAt DateTime            // Kadaluarsa token (default: 15 menit)
+  isUsed    Boolean  @default(false) // Sudah dipakai?
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

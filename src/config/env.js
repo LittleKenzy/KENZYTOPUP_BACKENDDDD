@@ -21,6 +21,13 @@ const env = {
   CORS_ORIGINS: process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim())
     : ['http://localhost:5173'],
+
+  // SMTP Email (untuk kirim email reset password)
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+
+  // Frontend URL (untuk generate link reset password di email)
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
 };
 
 // Validasi env wajib

@@ -21,4 +21,14 @@ router.post('/logout', authLimiter, authController.logout);
 // hanya dibatasi oleh generalLimiter di app.js (100/15menit)
 router.get('/me', authenticate, authController.getMe);
 
+// ─── FORGOT PASSWORD FLOW ───────────────────
+// POST /forgot-password: request reset token (rate-limited ketat)
+router.post('/forgot-password', loginLimiter, authController.forgotPassword);
+
+// POST /verify-reset-token: cek apakah token masih valid
+router.post('/verify-reset-token', loginLimiter, authController.verifyResetToken);
+
+// POST /reset-password: ganti password dengan token yang valid
+router.post('/reset-password', loginLimiter, authController.resetPassword);
+
 module.exports = router;

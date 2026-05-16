@@ -3,7 +3,14 @@
 // ============================================
 
 const authService = require('./auth.service');
-const { registerSchema, loginSchema, refreshSchema } = require('./auth.validation');
+const {
+  registerSchema,
+  loginSchema,
+  refreshSchema,
+  forgotPasswordSchema,
+  verifyResetTokenSchema,
+  resetPasswordSchema,
+} = require('./auth.validation');
 
 // ─── POST /api/auth/register ─────────────────
 async function register(req, res, next) {
@@ -95,4 +102,62 @@ async function getMe(req, res, next) {
   }
 }
 
-module.exports = { register, login, refresh, logout, getMe };
+// ─── POST /api/auth/forgot-password ──────────
+async function forgotPassword(req, res, next) {
+  try {
+    const validated = forgotPasswordSchema.parse(req.body);
+
+    const result = await authService.requestPasswordReset(validated.email);
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── POST /api/auth/verify-reset-token ───────
+async function verifyResetToken(req, res, next) {
+  try {
+    const validated = verifyResetTokenSchema.parse(req.body);
+
+    const result = await authService.verifyResetToken(validated.token);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Token reset password valid.',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── POST /api/auth/reset-password ───────────
+async function resetPassword(req, res, next) {
+  try {
+    const validated = resetPasswordSchema.parse(req.body);
+
+    const result = await authService.resetPassword(validated.token, validated.newPassword);
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = {
+  register,
+  login,
+  refresh,
+  logout,
+  getMe,
+  forgotPassword,
+  verifyResetToken,
+  resetPassword,
+};

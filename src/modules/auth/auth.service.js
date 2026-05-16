@@ -169,4 +169,138 @@ async function getMe(userId) {
   return user;
 }
 
-module.exports = { register, login, refreshAccessToken, logout, getMe };
+// ─── REQUEST PASSWORD RESET ──────────────────
+// Buat token reset password dan simpan di database
+// Token berlaku 15 menit
+async function requestPasswordReset(email) {
+  // Cari user berdasarkan email
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  // Selalu response sukses (hindari email enumeration attack)
+  if (!user) {
+    return { message: 'Jika email terdaftar, link reset password akan dikirimkan.' };
+  }
+
+  // Invalidasi semua token reset lama milik user ini
+  await prisma.passwordResetToken.updateMany({
+    where: { userId: user.id, isUsed: false },
+    data: { isUsed: true },
+  });
+
+  // Generate token acak (64 karakter hex)
+  const resetToken = crypto.randomBytes(32).toString('hex');
+
+  // Token berlaku 15 menit
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+  // Simpan token ke database
+  await prisma.passwordResetToken.create({
+    data: {
+      userId: user.id,
+      token: resetToken,
+      expiresAt,
+    },
+  });
+
+  // Kirim email reset password ke user
+  const { sendPasswordResetEmail } = require('../../config/email');
+
+  try {
+    await sendPasswordResetEmail(user.email, user.name, resetToken);
+  } catch (emailError) {
+    console.error('❌ Gagal kirim email reset password:', emailError.message);
+    // Jangan throw error ke user — tetap kasih response sukses
+    // Token sudah tersimpan, bisa dipakai jika email retry berhasil
+  }
+
+  return {
+    message: 'Jika email terdaftar, link reset password akan dikirimkan.',
+  };
+}
+
+// ─── VERIFY RESET TOKEN ─────────────────────
+// Validasi apakah token reset masih berlaku
+async function verifyResetToken(token) {
+  const resetToken = await prisma.passwordResetToken.findUnique({
+    where: { token },
+    include: { user: { select: { id: true, email: true, name: true } } },
+  });
+
+  if (!resetToken) {
+    throw new AppError('Token reset password tidak valid.', 400);
+  }
+
+  if (resetToken.isUsed) {
+    throw new AppError('Token reset password sudah digunakan.', 400);
+  }
+
+  if (new Date() > resetToken.expiresAt) {
+    throw new AppError('Token reset password sudah kadaluarsa. Silakan request ulang.', 400);
+  }
+
+  return {
+    valid: true,
+    email: resetToken.user.email,
+    name: resetToken.user.name,
+  };
+}
+
+// ─── RESET PASSWORD ─────────────────────────
+// Ganti password user berdasarkan token reset yang valid
+async function resetPassword(token, newPassword) {
+  // Cari token di database
+  const resetToken = await prisma.passwordResetToken.findUnique({
+    where: { token },
+    include: { user: true },
+  });
+
+  if (!resetToken) {
+    throw new AppError('Token reset password tidak valid.', 400);
+  }
+
+  if (resetToken.isUsed) {
+    throw new AppError('Token reset password sudah digunakan.', 400);
+  }
+
+  if (new Date() > resetToken.expiresAt) {
+    throw new AppError('Token reset password sudah kadaluarsa. Silakan request ulang.', 400);
+  }
+
+  // Hash password baru
+  const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+  // Update password user + tandai token sebagai sudah dipakai
+  await prisma.$transaction([
+    // Update password
+    prisma.user.update({
+      where: { id: resetToken.userId },
+      data: { password: hashedPassword },
+    }),
+    // Tandai token sebagai sudah dipakai
+    prisma.passwordResetToken.update({
+      where: { id: resetToken.id },
+      data: { isUsed: true },
+    }),
+    // Hapus semua refresh token user (paksa logout dari semua sesi)
+    prisma.refreshToken.deleteMany({
+      where: { userId: resetToken.userId },
+    }),
+  ]);
+
+  return {
+    message: 'Password berhasil diubah. Silakan login dengan password baru.',
+  };
+}
+
+module.exports = {
+  register,
+  login,
+  refreshAccessToken,
+  logout,
+  getMe,
+  requestPasswordReset,
+  verifyResetToken,
+  resetPassword,
+};
