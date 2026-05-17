@@ -29,6 +29,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   loyaltyPoints      LoyaltyPoints?
   pointRedemptions   PointRedemption[]
+  missionLogs        MissionLog[]
 }
 
 // ─── PRODUCT ─────────────────────────────────
@@ -174,4 +175,20 @@ model LoyaltyConfig {
   redeemExpiryDays Int     @default(30)  // Hari kadaluarsa kode diskon
   isActive        Boolean  @default(true) // Toggle sistem poin
   updatedAt       DateTime @updatedAt
+}
+
+// ─── MISSION LOG ────────────────────────────
+// Log misi harian (daily share mission)
+// Satu user hanya bisa klaim 1x per hari (unique userId + missionDate)
+model MissionLog {
+  id          String   @id @default(uuid())
+  userId      String
+  missionDate String              // Tanggal WIB format "YYYY-MM-DD"
+  channel     String              // whatsapp, instagram, tiktok, copy
+  points      Int      @default(10)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, missionDate]) // 1x per hari per user
 }

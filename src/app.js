@@ -29,6 +29,7 @@ const qrisController = require('./modules/qris/qris.controller');
 const newsController = require('./modules/news/news.controller');
 const flashSaleController = require('./modules/flashsale/flashsale.controller');
 const loyaltyController = require('./modules/loyalty/loyalty.controller');
+const missionRoutes = require('./modules/missions/mission.route');
 const { uploadQrisImage, uploadNewsImage } = require('./middleware/upload');
 const { ensureBuckets } = require('./config/supabase');
 
@@ -84,6 +85,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/missions', missionRoutes);
 
 // Public: ambil gambar QRIS toko (tidak perlu login)
 app.get('/api/qris', qrisController.getQris);
@@ -340,6 +342,7 @@ if (env.NODE_ENV !== 'production') {
     console.log('║  • /api/auth/*         — Auth            ║');
     console.log('║  • /api/products/*     — Products        ║');
     console.log('║  • /api/transactions/* — Transactions    ║');
+    console.log('║  • /api/missions/*     — Daily Mission   ║');
     console.log('║  • /api/admin/*        — Admin panel     ║');
     console.log('╚══════════════════════════════════════════╝');
     console.log('');

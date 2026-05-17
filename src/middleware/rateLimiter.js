@@ -49,4 +49,20 @@ const loginLimiter = rateLimit({
   },
 });
 
-module.exports = { generalLimiter, authLimiter, loginLimiter };
+/**
+ * Mission claim limiter: 10 request per menit per IP
+ * Untuk endpoint POST /api/missions/daily/claim — cegah spam klaim
+ */
+const missionClaimLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 menit
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Terlalu banyak percobaan klaim misi. Coba lagi dalam 1 menit.',
+  },
+});
+
+module.exports = { generalLimiter, authLimiter, loginLimiter, missionClaimLimiter };
+
