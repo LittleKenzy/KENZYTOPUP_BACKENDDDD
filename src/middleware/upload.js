@@ -46,6 +46,8 @@ const uploadNewsImage = multer({
   },
 }).single('newsImage'); // field name: "newsImage"
 
+
+
 // Wrapper agar multer error masuk ke error handler Express
 function handleMulterUpload(multerMiddleware) {
   return (req, res, next) => {

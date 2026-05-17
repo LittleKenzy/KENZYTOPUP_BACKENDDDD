@@ -5,7 +5,7 @@
 
 module.exports = {
   /** Poin yang diberikan per misi harian yang diselesaikan */
-  MISSION_POINTS: 10,
+  MISSION_POINTS: 1,
 
   /** Offset timezone WIB dari UTC (jam) */
   TIMEZONE_OFFSET: 7, // WIB = UTC+7

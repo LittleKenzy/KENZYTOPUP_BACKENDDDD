@@ -15,14 +15,15 @@ datasource db {
 
 // ─── USER ────────────────────────────────────
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String   @unique
-  email     String   @unique
-  password  String   // bcrypt hashed
-  role      String   @default("user") // "user" | "admin"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(uuid())
+  name       String
+  phone      String   @unique
+  email      String   @unique
+  password   String   // bcrypt hashed
+  role       String   @default("user") // "user" | "admin"
+  waVerified Boolean  @default(true)   // Apakah nomor WA terverifikasi (untuk blast)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   transactions       Transaction[]
   refreshTokens      RefreshToken[]
@@ -30,6 +31,8 @@ model User {
   loyaltyPoints      LoyaltyPoints?
   pointRedemptions   PointRedemption[]
   missionLogs        MissionLog[]
+  blastLogs          BlastLog[]
+  waBlastsSent       WaBlast[]     // Custom blast campaigns yang dibuat admin ini
 }
 
 // ─── PRODUCT ─────────────────────────────────
@@ -135,7 +138,8 @@ model FlashSale {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  product Product? @relation(fields: [productId], references: [id])
+  product   Product?   @relation(fields: [productId], references: [id])
+  blastLogs BlastLog[] // Log pengiriman WA blast
 }
 
 // ─── LOYALTY POINTS ─────────────────────────
@@ -191,4 +195,44 @@ model MissionLog {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, missionDate]) // 1x per hari per user
+}
+
+// ─── BLAST LOG ──────────────────────────────
+// Log pengiriman pesan WA blast ke user
+// Bisa terkait flash sale ATAU custom blast dari admin
+// Tracking status: pending → sent / failed
+model BlastLog {
+  id          String    @id @default(uuid())
+  flashSaleId String?             // Optional — null jika custom blast
+  waBlastId   String?             // Optional — null jika flash sale blast
+  userId      String
+  phone       String              // Nomor WA tujuan (format 62xxx)
+  status      String    @default("pending") // pending | sent | failed
+  sentAt      DateTime?           // Waktu berhasil terkirim
+  errorMsg    String?             // Pesan error jika gagal
+  createdAt   DateTime  @default(now())
+
+  flashSale FlashSale? @relation(fields: [flashSaleId], references: [id], onDelete: Cascade)
+  waBlast   WaBlast?   @relation(fields: [waBlastId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([flashSaleId])
+  @@index([waBlastId])
+  @@index([userId])
+}
+
+// ─── WA BLAST (Custom Admin Blast) ──────────
+// Kampanye blast WA custom dari admin (bukan terkait flash sale)
+// Admin bisa pilih kirim ke semua user atau user tertentu
+model WaBlast {
+  id         String   @id @default(uuid())
+  message    String              // Isi pesan WA (caption jika ada gambar)
+  imageUrl   String?             // URL gambar (Supabase Storage), opsional
+  targetType String              // "all" | "selected"
+  totalSent  Int      @default(0) // Total pesan yang dikirim
+  adminId    String              // Admin yang mengirim
+  createdAt  DateTime @default(now())
+
+  admin     User       @relation(fields: [adminId], references: [id])
+  blastLogs BlastLog[]
 }

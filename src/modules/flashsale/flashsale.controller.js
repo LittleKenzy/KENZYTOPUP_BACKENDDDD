@@ -3,6 +3,7 @@
 // ============================================
 
 const flashSaleService = require('./flashsale.service');
+const blastService = require('./blast.service');
 
 // ─── GET /api/flash-sales — Public: ambil flash sale aktif ─
 async function getActiveFlashSales(req, res, next) {
@@ -49,25 +50,46 @@ async function getFlashSaleById(req, res, next) {
   }
 }
 
-// ─── POST /api/admin/flash-sales — Admin: buat flash sale ─
+// ─── POST /api/admin/flash-sales — Admin: buat flash sale + trigger WA blast ─
 async function createFlashSale(req, res, next) {
   try {
-    const { title, description, discountPercent, productId, category, startAt, endAt } = req.body;
+    const { title, description, discountPercent, productId, category, startAt, endAt, blastUserIds } = req.body;
 
-    const flashSale = await flashSaleService.createFlashSale({
+    let parsedBlastUserIds = blastUserIds;
+    // Parse blastUserIds if it's a JSON array string from form-data
+    if (typeof blastUserIds === 'string' && blastUserIds !== 'all' && blastUserIds !== 'none') {
+      try {
+        parsedBlastUserIds = JSON.parse(blastUserIds);
+      } catch {
+        return res.status(400).json({
+          success: false,
+          message: 'Format blastUserIds tidak valid. Kirim "all", "none", atau JSON array.',
+        });
+      }
+    }
+
+    const { flashSale, blastStatus } = await flashSaleService.createFlashSale({
       title,
       description,
       discountPercent: parseInt(discountPercent, 10),
-      productId,
-      category,
+      productId: productId || null,
+      category: category || null,
       startAt,
       endAt,
+      blastUserIds: parsedBlastUserIds || 'all',
     });
+
+    const blastMsg = blastStatus.total > 0
+      ? ` WA blast dikirim ke ${blastStatus.total} user.`
+      : blastUserIds === 'none'
+        ? ' WA blast dilewati.'
+        : '';
 
     return res.status(201).json({
       success: true,
-      message: 'Flash sale berhasil dibuat.',
+      message: `Flash sale berhasil dibuat.${blastMsg}`,
       data: flashSale,
+      blastStatus,
     });
   } catch (error) {
     next(error);
@@ -140,6 +162,36 @@ async function toggleFlashSale(req, res, next) {
   }
 }
 
+// ─── GET /api/admin/flash-sales/:id/blast-stats — Admin: statistik blast ─
+async function getBlastStats(req, res, next) {
+  try {
+    const stats = await blastService.getBlastStats(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Statistik blast berhasil diambil.',
+      data: stats,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── GET /api/admin/flash-sales/:id/blast-logs — Admin: detail blast logs ─
+async function getBlastLogs(req, res, next) {
+  try {
+    const logs = await blastService.getBlastLogs(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Blast logs berhasil diambil.',
+      data: logs,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getActiveFlashSales,
   getAllFlashSales,
@@ -148,4 +200,6 @@ module.exports = {
   updateFlashSale,
   deleteFlashSale,
   toggleFlashSale,
+  getBlastStats,
+  getBlastLogs,
 };

@@ -134,9 +134,36 @@ async function claimDailyMission(userId, channel) {
   };
 }
 
+// ─── ADMIN: GET TODAY'S MISSION LOGS ──────────
+async function getTodayLogs() {
+  const todayWIB = getTodayWIB();
+  const logs = await prisma.missionLog.findMany({
+    where: { missionDate: todayWIB },
+    include: {
+      user: {
+        select: { id: true, name: true, phone: true }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+  return logs;
+}
+
+// ─── ADMIN: RESET TODAY'S MISSIONS ────────────
+async function resetTodayMissions() {
+  const todayWIB = getTodayWIB();
+  const result = await prisma.missionLog.deleteMany({
+    where: { missionDate: todayWIB }
+  });
+  
+  return { deletedCount: result.count };
+}
+
 module.exports = {
   getDailyStatus,
   claimDailyMission,
   getTodayWIB,
   getNextResetISO,
+  getTodayLogs,
+  resetTodayMissions,
 };

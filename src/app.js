@@ -28,8 +28,10 @@ const productController = require('./modules/products/product.controller');
 const qrisController = require('./modules/qris/qris.controller');
 const newsController = require('./modules/news/news.controller');
 const flashSaleController = require('./modules/flashsale/flashsale.controller');
+const blastController = require('./modules/blast/blast.controller');
 const loyaltyController = require('./modules/loyalty/loyalty.controller');
 const missionRoutes = require('./modules/missions/mission.route');
+const missionController = require('./modules/missions/mission.controller');
 const { uploadQrisImage, uploadNewsImage } = require('./middleware/upload');
 const { ensureBuckets } = require('./config/supabase');
 
@@ -287,6 +289,18 @@ app.patch(
   authorize('admin'),
   flashSaleController.toggleFlashSale
 );
+app.get(
+  '/api/admin/flash-sales/:id/blast-stats',
+  authenticate,
+  authorize('admin'),
+  flashSaleController.getBlastStats
+);
+app.get(
+  '/api/admin/flash-sales/:id/blast-logs',
+  authenticate,
+  authorize('admin'),
+  flashSaleController.getBlastLogs
+);
 
 // --- Admin: Loyalty / Poin management ---
 app.get(
@@ -312,6 +326,46 @@ app.get(
   authenticate,
   authorize('admin'),
   loyaltyController.getLoyaltyLeaderboard
+);
+
+// --- Admin: Mission / Misi Harian management ---
+app.get(
+  '/api/admin/missions/logs',
+  authenticate,
+  authorize('admin'),
+  missionController.getTodayLogs
+);
+app.delete(
+  '/api/admin/missions/reset',
+  authenticate,
+  authorize('admin'),
+  missionController.resetTodayMissions
+);
+
+// --- Admin: WA Blast management ---
+app.get(
+  '/api/admin/blast/users',
+  authenticate,
+  authorize('admin'),
+  blastController.getBlastableUsers
+);
+app.post(
+  '/api/admin/blast/send',
+  authenticate,
+  authorize('admin'),
+  blastController.sendBlast
+);
+app.get(
+  '/api/admin/blast/history',
+  authenticate,
+  authorize('admin'),
+  blastController.getBlastHistory
+);
+app.get(
+  '/api/admin/blast/history/:id',
+  authenticate,
+  authorize('admin'),
+  blastController.getBlastDetail
 );
 
 // ─── 404 HANDLER ─────────────────────────────

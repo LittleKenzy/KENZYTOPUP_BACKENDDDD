@@ -4,6 +4,7 @@
 
 const prisma = require('../../config/db');
 const { AppError } = require('../../middleware/errorHandler');
+const blastService = require('./blast.service');
 
 // ─── GET ACTIVE FLASH SALES (public) ────────
 // Ambil semua flash sale yang sedang aktif & dalam rentang waktu
@@ -97,7 +98,7 @@ async function getFlashSaleById(id) {
   return flashSale;
 }
 
-// ─── CREATE FLASH SALE (admin) ──────────────
+// ─── CREATE FLASH SALE + TRIGGER WA BLAST (admin) ──────────
 async function createFlashSale({
   title,
   description,
@@ -106,6 +107,7 @@ async function createFlashSale({
   category,
   startAt,
   endAt,
+  blastUserIds = 'all', // "all" | "none" | [...userIds]
 }) {
   // Validasi diskon
   if (discountPercent < 1 || discountPercent > 100) {
@@ -121,8 +123,9 @@ async function createFlashSale({
   }
 
   // Validasi produk jika diberikan
+  let product = null;
   if (productId) {
-    const product = await prisma.product.findUnique({
+    product = await prisma.product.findUnique({
       where: { id: productId },
     });
     if (!product) {
@@ -156,7 +159,18 @@ async function createFlashSale({
 
   console.log(`🏷️ Flash Sale dibuat: "${title}" — Diskon ${discountPercent}%`);
 
-  return flashSale;
+  // ── TRIGGER WA BLAST (async, fire & forget) ──
+  // Kirim pesan ke user sesuai pilihan admin
+  let blastStatus = { total: 0, queued: 0 };
+  try {
+    blastStatus = await blastService.triggerBlast(flashSale, flashSale.product, blastUserIds);
+    console.log(`📤 WA Blast diqueue: ${blastStatus.queued}/${blastStatus.total} user`);
+  } catch (err) {
+    console.error('⚠️ Gagal trigger WA blast:', err.message);
+    // Blast gagal tidak boleh menggagalkan pembuatan flash sale
+  }
+
+  return { flashSale, blastStatus };
 }
 
 // ─── UPDATE FLASH SALE (admin) ──────────────

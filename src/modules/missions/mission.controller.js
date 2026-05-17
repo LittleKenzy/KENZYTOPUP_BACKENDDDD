@@ -51,7 +51,39 @@ async function claimDailyMission(req, res, next) {
   }
 }
 
+// ─── ADMIN: GET /api/admin/missions/logs ────
+async function getTodayLogs(req, res, next) {
+  try {
+    const logs = await missionService.getTodayLogs();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Log misi hari ini berhasil diambil.',
+      data: logs,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── ADMIN: DELETE /api/admin/missions/reset ─
+async function resetTodayMissions(req, res, next) {
+  try {
+    const result = await missionService.resetTodayMissions();
+
+    return res.status(200).json({
+      success: true,
+      message: `Berhasil mereset ${result.deletedCount} misi hari ini.`,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getDailyStatus,
   claimDailyMission,
+  getTodayLogs,
+  resetTodayMissions,
 };
