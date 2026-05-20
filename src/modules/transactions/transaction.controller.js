@@ -8,6 +8,8 @@ const {
   queryTransactionSchema,
   updateStatusSchema,
 } = require('./transaction.validation');
+const { notifyAdminNewOrder } = require('../../utils/adminNotifier');
+const prisma = require('../../config/db');
 
 // ─── POST /api/transactions ──────────────────
 async function createTransaction(req, res, next) {
@@ -19,6 +21,30 @@ async function createTransaction(req, res, next) {
       validated,
       req.file // Bukti QRIS (multer file object, bisa undefined jika bukan QRIS)
     );
+
+    // ── Fire-and-forget: Kirim notifikasi WA ke admin ──
+    // Jangan await — agar response ke user tidak terhambat
+    (async () => {
+      try {
+        // Query user info (JWT hanya simpan userId & role)
+        const user = await prisma.user.findUnique({
+          where: { id: req.user.userId },
+          select: { name: true, phone: true },
+        });
+
+        notifyAdminNewOrder({
+          id: transaction.id,
+          productName: transaction.product?.name || '-',
+          userName: user?.name || '-',
+          userPhone: user?.phone || '-',
+          totalPrice: transaction.totalPrice,
+          targetId: validated.targetId,
+          paymentMethod: validated.paymentMethod,
+        }).catch(err => console.error('❌ Gagal kirim notif WA admin:', err));
+      } catch (err) {
+        console.error('❌ Gagal query user untuk notif admin:', err);
+      }
+    })();
 
     return res.status(201).json({
       success: true,
@@ -140,6 +166,24 @@ async function getTransactionStats(req, res, next) {
   }
 }
 
+// ─── GET /api/admin/orders/new?since= ────────
+// Endpoint polling untuk admin dashboard — cek order baru setiap 15 detik
+async function getNewOrders(req, res, next) {
+  try {
+    const { since } = req.query;
+
+    const result = await transactionService.getNewOrders(since);
+
+    return res.status(200).json({
+      success: true,
+      message: `${result.count} order baru ditemukan.`,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createTransaction,
   listTransactions,
@@ -148,4 +192,5 @@ module.exports = {
   getTransactionAdmin,
   updateTransactionStatus,
   getTransactionStats,
+  getNewOrders,
 };

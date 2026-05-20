@@ -116,6 +116,13 @@ app.get('/api/loyalty/my-redemptions', authenticate, loyaltyController.getMyRede
 // ═══════════════════════════════════════════════
 
 // --- Admin: Transaction management ---
+// Polling order baru (untuk notifikasi admin dashboard)
+app.get(
+  '/api/admin/orders/new',
+  authenticate,
+  authorize('admin'),
+  transactionController.getNewOrders
+);
 app.get(
   '/api/admin/transactions/stats',
   authenticate,

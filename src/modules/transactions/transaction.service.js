@@ -353,6 +353,37 @@ async function getTransactionStats() {
   return { total, pending, success, failed };
 }
 
+// ─── GET NEW ORDERS SINCE TIMESTAMP (admin polling) ─
+async function getNewOrders(since) {
+  const where = {};
+
+  if (since) {
+    const sinceDate = new Date(since);
+    if (!isNaN(sinceDate.getTime())) {
+      where.createdAt = { gt: sinceDate };
+    }
+  }
+
+  const orders = await prisma.transaction.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: 50, // Batasi max 50 order per polling
+    include: {
+      product: {
+        select: { name: true, category: true, denomination: true },
+      },
+      user: {
+        select: { id: true, name: true, email: true, phone: true },
+      },
+    },
+  });
+
+  return {
+    orders,
+    count: orders.length,
+  };
+}
+
 module.exports = {
   createTransaction,
   listUserTransactions,
@@ -361,4 +392,5 @@ module.exports = {
   getTransactionByIdAdmin,
   updateTransactionStatus,
   getTransactionStats,
+  getNewOrders,
 };
