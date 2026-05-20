@@ -32,7 +32,9 @@ model User {
   pointRedemptions   PointRedemption[]
   missionLogs        MissionLog[]
   blastLogs          BlastLog[]
-  waBlastsSent       WaBlast[]     // Custom blast campaigns yang dibuat admin ini
+  waBlastsSent       WaBlast[]          // Custom blast campaigns yang dibuat admin ini
+  pushSubscriptions  PushSubscription[] // Web push notification subscriptions
+  notifications      Notification[]     // In-app notifications
 }
 
 // ─── PRODUCT ─────────────────────────────────
@@ -235,4 +237,37 @@ model WaBlast {
 
   admin     User       @relation(fields: [adminId], references: [id])
   blastLogs BlastLog[]
+}
+
+// ─── PUSH SUBSCRIPTION ─────────────────────
+// Simpan subscription browser push notification per user
+// Satu user bisa punya banyak subscription (multi-device)
+model PushSubscription {
+  id           String   @id @default(uuid())
+  userId       String
+  endpoint     String   @unique // Endpoint unik dari browser
+  subscription String   // Full subscription JSON (endpoint + keys)
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── NOTIFICATION ───────────────────────────
+// Simpan log notifikasi in-app untuk user
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  type      String   // "order_status" | "points" | "flash_sale" | "announcement"
+  data      String?  // JSON string untuk data tambahan (url, targetId, dll)
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
 }

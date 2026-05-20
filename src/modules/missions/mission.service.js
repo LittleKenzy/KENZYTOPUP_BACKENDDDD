@@ -9,6 +9,8 @@ const {
   TIMEZONE_OFFSET,
   VALID_CHANNELS,
 } = require('../../config/missionConfig');
+const pushService = require('../push/push.service');
+const notificationService = require('../notifications/notification.service');
 
 /**
  * Hitung tanggal hari ini berdasarkan WIB (UTC+7)
@@ -125,6 +127,30 @@ async function claimDailyMission(userId, channel) {
   console.log(
     `🎯 Misi harian selesai: user ${userId} klaim ${MISSION_POINTS} poin via ${channel}`
   );
+
+  // Kirim push notification ke user (fire-and-forget)
+  try {
+    await pushService.sendPushToUser(userId, {
+      title: '🎁 Poin Masuk!',
+      body: `+${MISSION_POINTS} poin dari misi harian! Total poin kamu sekarang ${updatedLoyalty.currentPoints} poin.`,
+      icon: '/icons/icon-192x192.png',
+      data: {
+        type: 'points_earned',
+        source: 'daily_mission',
+        url: '/missions',
+      },
+    });
+
+    // Simpan notifikasi in-app
+    await notificationService.createNotification(userId, {
+      type: 'points',
+      title: '🎁 Poin Masuk!',
+      body: `+${MISSION_POINTS} poin dari misi harian!`,
+      data: { url: '/missions' },
+    });
+  } catch (pushErr) {
+    console.warn(`⚠️ Push notification gagal: ${pushErr.message}`);
+  }
 
   return {
     success: true,

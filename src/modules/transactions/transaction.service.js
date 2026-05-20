@@ -8,6 +8,8 @@ const { uploadFile, BUCKETS } = require('../../config/supabase');
 const { AppError } = require('../../middleware/errorHandler');
 const loyaltyService = require('../loyalty/loyalty.service');
 const flashSaleService = require('../flashsale/flashsale.service');
+const pushService = require('../push/push.service');
+const notificationService = require('../notifications/notification.service');
 
 // ─── CREATE TRANSACTION ─────────────────────
 async function createTransaction(userId, { productId, targetId, quantity, paymentMethod, discountCode }, paymentProofFile) {
@@ -308,7 +310,7 @@ async function updateTransactionStatus(transactionId, { status, note }) {
     `📦 Transaction ${transactionId}: Status diubah ke ${status} oleh Admin`
   );
 
-  // 4. Jika status berubah ke SUCCESS, berikan poin loyalty
+  // 4. Jika status berubah ke SUCCESS, berikan poin loyalty + push notification
   let pointsResult = null;
   if (status === 'SUCCESS' && existing.status !== 'SUCCESS') {
     try {
@@ -319,6 +321,36 @@ async function updateTransactionStatus(transactionId, { status, note }) {
       );
     } catch (err) {
       console.warn(`⚠️ Gagal memberikan poin loyalty: ${err.message}`);
+    }
+
+    // 5. Kirim push notification ke user (fire-and-forget)
+    try {
+      const productName = transaction.product?.name || 'Produk';
+      const pointsEarned = pointsResult ? pointsResult.pointsEarned : 0;
+      const pointsText = pointsEarned > 0
+        ? ` Kamu dapat +${pointsEarned} poin.`
+        : '';
+
+      await pushService.sendPushToUser(existing.userId, {
+        title: '✅ Order Berhasil!',
+        body: `${productName} sudah diproses.${pointsText}`,
+        icon: '/icons/icon-192x192.png',
+        data: {
+          type: 'order_confirmed',
+          transactionId,
+          url: '/orders',
+        },
+      });
+
+      // 6. Simpan notifikasi in-app
+      await notificationService.createNotification(existing.userId, {
+        type: 'order_status',
+        title: '✅ Order Berhasil!',
+        body: `${productName} untuk ${existing.targetId} sudah diproses.${pointsText}`,
+        data: { transactionId, url: '/riwayat' },
+      });
+    } catch (pushErr) {
+      console.warn(`⚠️ Push notification gagal: ${pushErr.message}`);
     }
   }
 

@@ -28,6 +28,11 @@ const env = {
 
   // Frontend URL (untuk generate link reset password di email)
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+
+  // Web Push (VAPID) — generate keys: npx web-push generate-vapid-keys
+  VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || '',
+  VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || '',
+  VAPID_MAILTO: process.env.VAPID_MAILTO || 'mailto:admin@kenzystore.com',
 };
 
 // Validasi env wajib

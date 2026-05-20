@@ -5,6 +5,8 @@
 const crypto = require('crypto');
 const prisma = require('../../config/db');
 const { AppError } = require('../../middleware/errorHandler');
+const pushService = require('../push/push.service');
+const notificationService = require('../notifications/notification.service');
 
 // ─── GET OR CREATE LOYALTY CONFIG ───────────
 // Pastikan selalu ada config (singleton)
@@ -124,6 +126,31 @@ async function awardPoints(userId, totalPrice, transactionId) {
   console.log(
     `🎁 Poin diberikan: ${pointsEarned} poin ke user ${userId} (Rp${totalPrice.toLocaleString()})`
   );
+
+  // Kirim push notification ke user (fire-and-forget)
+  try {
+    await pushService.sendPushToUser(userId, {
+      title: '🎁 Poin Masuk!',
+      body: `+${pointsEarned} poin dari transaksi! Total poin kamu sekarang ${loyalty.currentPoints} poin.`,
+      icon: '/icons/icon-192x192.png',
+      data: {
+        type: 'points_earned',
+        source: 'transaction',
+        transactionId,
+        url: '/loyalty',
+      },
+    });
+
+    // Simpan notifikasi in-app
+    await notificationService.createNotification(userId, {
+      type: 'points',
+      title: '🎁 Poin Masuk!',
+      body: `+${pointsEarned} poin dari transaksi!`,
+      data: { transactionId, url: '/loyalty' },
+    });
+  } catch (pushErr) {
+    console.warn(`⚠️ Push notification gagal: ${pushErr.message}`);
+  }
 
   return { pointsEarned, currentPoints: loyalty.currentPoints };
 }

@@ -32,6 +32,8 @@ const blastController = require('./modules/blast/blast.controller');
 const loyaltyController = require('./modules/loyalty/loyalty.controller');
 const missionRoutes = require('./modules/missions/mission.route');
 const missionController = require('./modules/missions/mission.controller');
+const pushController = require('./modules/push/push.controller');
+const notificationController = require('./modules/notifications/notification.controller');
 const { uploadQrisImage, uploadNewsImage } = require('./middleware/upload');
 const { ensureBuckets } = require('./config/supabase');
 
@@ -101,6 +103,9 @@ app.get('/api/flash-sales', flashSaleController.getActiveFlashSales);
 // Public: ambil pengaturan loyalty (info poin per belanja)
 app.get('/api/loyalty/config', loyaltyController.getLoyaltyConfig);
 
+// Public: ambil VAPID public key untuk push notification
+app.get('/api/push/vapid-key', pushController.getVapidKey);
+
 // ═══════════════════════════════════════════════
 // USER-ONLY ENDPOINTS (perlu login)
 // ═══════════════════════════════════════════════
@@ -110,6 +115,16 @@ app.get('/api/loyalty/my-points', authenticate, loyaltyController.getMyPoints);
 app.post('/api/loyalty/redeem', authenticate, loyaltyController.redeemPoints);
 app.post('/api/loyalty/validate-code', authenticate, loyaltyController.validateDiscountCode);
 app.get('/api/loyalty/my-redemptions', authenticate, loyaltyController.getMyRedemptions);
+
+// --- User: Push Notification ---
+app.post('/api/push/subscribe', authenticate, pushController.subscribe);
+app.delete('/api/push/unsubscribe', authenticate, pushController.unsubscribe);
+
+// --- User: Notifications (In-app) ---
+app.get('/api/notifications', authenticate, notificationController.getMyNotifications);
+app.get('/api/notifications/unread', authenticate, notificationController.getUnreadCount);
+app.patch('/api/notifications/read-all', authenticate, notificationController.markAllAsRead);
+app.patch('/api/notifications/:id/read', authenticate, notificationController.markAsRead);
 
 // ═══════════════════════════════════════════════
 // ADMIN-ONLY ENDPOINTS
@@ -404,6 +419,7 @@ if (env.NODE_ENV !== 'production') {
     console.log('║  • /api/products/*     — Products        ║');
     console.log('║  • /api/transactions/* — Transactions    ║');
     console.log('║  • /api/missions/*     — Daily Mission   ║');
+    console.log('║  • /api/push/*         — Push Notif      ║');
     console.log('║  • /api/admin/*        — Admin panel     ║');
     console.log('╚══════════════════════════════════════════╝');
     console.log('');

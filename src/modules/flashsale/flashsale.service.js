@@ -5,6 +5,8 @@
 const prisma = require('../../config/db');
 const { AppError } = require('../../middleware/errorHandler');
 const blastService = require('./blast.service');
+const pushService = require('../push/push.service');
+const notificationService = require('../notifications/notification.service');
 
 // ─── GET ACTIVE FLASH SALES (public) ────────
 // Ambil semua flash sale yang sedang aktif & dalam rentang waktu
@@ -170,7 +172,40 @@ async function createFlashSale({
     // Blast gagal tidak boleh menggagalkan pembuatan flash sale
   }
 
-  return { flashSale, blastStatus };
+  // ── TRIGGER PUSH NOTIFICATION (broadcast ke semua subscriber) ──
+  let pushStatus = { sent: 0, failed: 0, total: 0 };
+  try {
+    const productName = flashSale.product?.name || 'Produk Pilihan';
+    const durationMs = end.getTime() - start.getTime();
+    const durationHours = Math.round(durationMs / (1000 * 60 * 60));
+    const durationText = durationHours >= 24
+      ? `${Math.round(durationHours / 24)} hari`
+      : `${durationHours} jam`;
+
+    pushStatus = await pushService.sendPushToAll({
+      title: '⚡ Flash Sale!',
+      body: `${productName} diskon ${discountPercent}% — hanya ${durationText}!`,
+      icon: '/icons/icon-192x192.png',
+      data: {
+        type: 'flash_sale',
+        flashSaleId: flashSale.id,
+        url: '/flash-sale',
+      },
+    });
+    console.log(`🔔 Push broadcast: ${pushStatus.sent}/${pushStatus.total} sent`);
+
+    // Tambahkan broadcast notifikasi in-app
+    await notificationService.broadcastNotification({
+      type: 'flash_sale',
+      title: '⚡ Flash Sale!',
+      body: `${productName} diskon ${discountPercent}% — hanya ${durationText}!`,
+      data: { flashSaleId: flashSale.id, url: '/layanan' },
+    });
+  } catch (pushErr) {
+    console.error('⚠️ Gagal trigger push broadcast:', pushErr.message);
+  }
+
+  return { flashSale, blastStatus, pushStatus };
 }
 
 // ─── UPDATE FLASH SALE (admin) ──────────────
