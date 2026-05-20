@@ -22,29 +22,28 @@ async function createTransaction(req, res, next) {
       req.file // Bukti QRIS (multer file object, bisa undefined jika bukan QRIS)
     );
 
-    // ── Fire-and-forget: Kirim notifikasi WA ke admin ──
-    // Jangan await — agar response ke user tidak terhambat
-    (async () => {
-      try {
-        // Query user info (JWT hanya simpan userId & role)
-        const user = await prisma.user.findUnique({
-          where: { id: req.user.userId },
-          select: { name: true, phone: true },
-        });
+    // ── Kirim notifikasi WA ke admin (await untuk kompatibilitas Vercel serverless) ──
+    // Di Vercel, proses async tanpa await akan dibekukan setelah response dikirim.
+    // Proses ini sangat cepat (<1 detik) sehingga user tidak merasakan delay.
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        select: { name: true, phone: true },
+      });
 
-        notifyAdminNewOrder({
-          id: transaction.id,
-          productName: transaction.product?.name || '-',
-          userName: user?.name || '-',
-          userPhone: user?.phone || '-',
-          totalPrice: transaction.totalPrice,
-          targetId: validated.targetId,
-          paymentMethod: validated.paymentMethod,
-        }).catch(err => console.error('❌ Gagal kirim notif WA admin:', err));
-      } catch (err) {
-        console.error('❌ Gagal query user untuk notif admin:', err);
-      }
-    })();
+      await notifyAdminNewOrder({
+        id: transaction.id,
+        productName: transaction.product?.name || '-',
+        userName: user?.name || '-',
+        userPhone: user?.phone || '-',
+        totalPrice: transaction.totalPrice,
+        targetId: validated.targetId,
+        paymentMethod: validated.paymentMethod,
+      });
+    } catch (notifErr) {
+      // Jangan sampai gagal notif membatalkan transaksi user
+      console.error('❌ Gagal kirim notif WA admin:', notifErr.message);
+    }
 
     return res.status(201).json({
       success: true,
