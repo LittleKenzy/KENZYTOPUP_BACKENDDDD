@@ -66,7 +66,7 @@ function buildOrderMessage(order) {
 🔖 Order ID : #${order.id}
 
 Segera proses pesanan ini!
-👉 ${process.env.WEBSITE_URL || 'https://kenzytopup-frontenddddd.vercel.app'}/admin/orders/${order.id}`;
+👉 ${process.env.WEBSITE_URL || 'https://kenzytopup-frontenddddd-ctiblgjlu-apal4ahs-projects.vercel.app'}/admin/orders/${order.id}`;
 }
 
 module.exports = { notifyAdminNewOrder, buildOrderMessage };

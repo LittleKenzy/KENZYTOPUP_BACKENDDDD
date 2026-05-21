@@ -90,7 +90,7 @@ const BLAST_CONFIG = {
   DELAY_MS: 1000,       // Jeda 1 detik antar batch (hindari rate limit)
   OWNER_PHONE: '082395928309',
   OWNER_WA: '6282395928309',
-  WEBSITE_URL: 'https://kenzytopup-frontenddddd.vercel.app/',
+  WEBSITE_URL: 'https://kenzytopup-frontenddddd-ctiblgjlu-apal4ahs-projects.vercel.app/',
   STORE_NAME: 'Kenzy Store',
 };
 
