@@ -10,10 +10,22 @@ const express = require('express');
 // This forces undici to ONLY use IPv4 connections.
 const { setGlobalDispatcher, Agent } = require('undici');
 setGlobalDispatcher(new Agent({ connect: { family: 4 } }));
-const helmet = require('helmet');
-const cors = require('cors');
+
 const env = require('./config/env');
-const { generalLimiter } = require('./middleware/rateLimiter');
+
+// ─── Security middleware (centralized) ───────
+const {
+  helmetMiddleware,
+  corsMiddleware,
+  corsPreflight,
+  mongoSanitizeMiddleware,
+  generalLimiter,
+  authLimiter,
+  orderLimiter,
+  pushSubscribeLimiter,
+} = require('./middleware/security');
+
+// ─── Existing middleware ─────────────────────
 const { sanitizeInput } = require('./middleware/sanitize');
 const { errorHandler } = require('./middleware/errorHandler');
 const { authenticate } = require('./middleware/auth');
@@ -21,6 +33,7 @@ const { authorize } = require('./middleware/role');
 
 // Import routes
 const authRoutes = require('./modules/auth/auth.route');
+const adminAuthRoutes = require('./modules/auth/adminAuth.route');
 const productRoutes = require('./modules/products/product.route');
 const transactionRoutes = require('./modules/transactions/transaction.route');
 const transactionController = require('./modules/transactions/transaction.controller');
@@ -39,37 +52,36 @@ const { ensureBuckets } = require('./config/supabase');
 
 const app = express();
 
-// ─── GLOBAL MIDDLEWARE ───────────────────────
+// ─── TRUST PROXY ─────────────────────────────
+// Vercel menggunakan reverse proxy, set trust proxy agar rate limiter
+// membaca IP asli dari header X-Forwarded-For, bukan IP proxy.
+app.set('trust proxy', 1);
 
-// Security headers (Helmet)
-app.use(helmet());
+// ═══════════════════════════════════════════════
+// GLOBAL MIDDLEWARE (urutan penting!)
+// Urutan: helmet → cors → bodyParser → sanitize → rateLimiter → routes
+// ═══════════════════════════════════════════════
 
-// CORS — whitelist frontend origins
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Izinkan Postman, localhost, atau domain apa pun dari vercel.app
-    if (!origin || origin.includes('localhost') || origin.includes('vercel.app')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  optionsSuccessStatus: 200, // penting untuk Vercel Serverless
-};
+// 1. Security headers (Helmet) — XSS, clickjacking, sniffing protection
+app.use(helmetMiddleware);
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Tangkap semua OPTIONS preflight
+// 2. CORS — Whitelist origin ketat, baca dari env ALLOWED_ORIGINS
+app.use(corsMiddleware());
+app.options('*', corsPreflight()); // Handle semua OPTIONS preflight
 
-// Rate limiting global
-app.use(generalLimiter);
-
-// Body parser
-app.use(express.json({ limit: '10kb' })); // Batasi ukuran body
+// 3. Body parser — Batasi ukuran JSON/form ke 10kb
+//    (route upload gambar pakai Multer sendiri dengan limit 5MB)
+app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-// Input sanitization — strip karakter berbahaya
+// 4a. Input sanitization — Strip MongoDB operator injection (defense in depth)
+app.use(mongoSanitizeMiddleware);
+
+// 4b. Input sanitization — Strip karakter HTML/control berbahaya
 app.use(sanitizeInput);
+
+// 5. Rate limiting global — max 100 request per 15 menit per IP
+app.use(generalLimiter);
 
 // ─── HEALTH CHECK ────────────────────────────
 app.get('/api/health', (_req, res) => {
@@ -87,6 +99,7 @@ app.get('/api/health', (_req, res) => {
 
 // ─── API ROUTES ──────────────────────────────
 app.use('/api/auth', authRoutes);
+app.use('/api/auth/admin', adminAuthRoutes); // 2FA OTP admin login
 app.use('/api/products', productRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/missions', missionRoutes);
@@ -117,7 +130,8 @@ app.post('/api/loyalty/validate-code', authenticate, loyaltyController.validateD
 app.get('/api/loyalty/my-redemptions', authenticate, loyaltyController.getMyRedemptions);
 
 // --- User: Push Notification ---
-app.post('/api/push/subscribe', authenticate, pushController.subscribe);
+// Push subscribe dibatasi max 5 request per 15 menit per IP
+app.post('/api/push/subscribe', pushSubscribeLimiter, authenticate, pushController.subscribe);
 app.delete('/api/push/unsubscribe', authenticate, pushController.unsubscribe);
 
 // --- User: Notifications (In-app) ---
@@ -413,6 +427,7 @@ if (env.NODE_ENV !== 'production') {
     console.log(`║  Env     : ${String(env.NODE_ENV).padEnd(29)}║`);
     console.log(`║  URL     : http://localhost:${String(env.PORT).padEnd(13)}║`);
     console.log('╠══════════════════════════════════════════╣');
+    console.log('║  Security: Helmet ✅ CORS ✅ RateLimit ✅ ║');
     console.log('║  Endpoints:                              ║');
     console.log('║  • /api/health         — Health check    ║');
     console.log('║  • /api/auth/*         — Auth            ║');

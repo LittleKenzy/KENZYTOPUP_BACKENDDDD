@@ -6,6 +6,7 @@ const { Router } = require('express');
 const transactionController = require('./transaction.controller');
 const { authenticate } = require('../../middleware/auth');
 const { uploadPaymentProof } = require('../../middleware/upload');
+const { orderLimiter } = require('../../middleware/rateLimiter');
 
 const router = Router();
 
@@ -14,7 +15,8 @@ router.use(authenticate);
 
 // User routes
 // POST /api/transactions — Buat transaksi (dengan optional upload bukti QRIS)
-router.post('/', uploadPaymentProof, transactionController.createTransaction);
+// Dibatasi max 20 request per 15 menit per IP
+router.post('/', orderLimiter, uploadPaymentProof, transactionController.createTransaction);
 router.get('/', transactionController.listTransactions);
 router.get('/:id', transactionController.getTransaction);
 

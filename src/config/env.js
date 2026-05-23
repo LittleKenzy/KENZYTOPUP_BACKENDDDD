@@ -17,9 +17,14 @@ const env = {
   JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 
-  // CORS
+  // CORS — whitelist origin
   CORS_ORIGINS: process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim())
+    : ['http://localhost:5173'],
+
+  // CORS — whitelist origin (dipakai oleh security.js)
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim())
     : ['http://localhost:5173'],
 
   // SMTP Email (untuk kirim email reset password)

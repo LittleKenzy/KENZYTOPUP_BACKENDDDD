@@ -35,6 +35,25 @@ model User {
   waBlastsSent       WaBlast[]          // Custom blast campaigns yang dibuat admin ini
   pushSubscriptions  PushSubscription[] // Web push notification subscriptions
   notifications      Notification[]     // In-app notifications
+  otpSessions        OtpSession[]       // 2FA OTP sessions untuk login admin
+}
+
+// ─── OTP SESSION (2FA Admin Login) ──────────
+// Menyimpan OTP session saat admin login dengan 2FA
+// OTP dikirim ke WA owner, admin harus input OTP untuk dapat JWT
+model OtpSession {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique  // Random UUID, identifier sesi OTP (dikirim ke frontend)
+  hashedOtp    String             // OTP yang sudah di-hash bcrypt (TIDAK simpan plain)
+  adminId      String             // Admin yang sedang login
+  attempts     Int      @default(0) // Counter percobaan salah (max 3)
+  expiresAt    DateTime           // Waktu kadaluarsa (now + 5 menit)
+  createdAt    DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([expiresAt])
 }
 
 // ─── PRODUCT ─────────────────────────────────
