@@ -113,22 +113,22 @@ async function adminLogin(req, res, next) {
       },
     });
 
-    // Kirim OTP ke WA owner (fire-and-forget)
+    // Kirim OTP ke WA owner (HARUS await — Vercel serverless mati setelah response)
     const ownerPhone = process.env.ADMIN_WA_NUMBER;
     if (ownerPhone) {
       const message = buildOtpMessage(plainOtp);
       console.log(`📤 Mengirim OTP ke WA admin: ${ownerPhone}`);
-      sendWhatsApp(ownerPhone, message)
-        .then((result) => {
-          if (result && result.status) {
-            console.log('✅ OTP berhasil dikirim ke WA admin');
-          } else {
-            console.error('❌ Fonnte response error:', JSON.stringify(result));
-          }
-        })
-        .catch((err) => {
-          console.error('❌ Gagal kirim OTP ke WA:', err.message);
-        });
+      try {
+        const result = await sendWhatsApp(ownerPhone, message);
+        if (result && result.status) {
+          console.log('✅ OTP berhasil dikirim ke WA admin');
+        } else {
+          console.error('❌ Fonnte response error:', JSON.stringify(result));
+        }
+      } catch (waErr) {
+        console.error('❌ Gagal kirim OTP ke WA:', waErr.message);
+        // Tetap lanjut — jangan block login flow
+      }
     } else {
       console.error('❌ ADMIN_WA_NUMBER belum diset di environment variables!');
     }
@@ -325,13 +325,20 @@ async function resendOtp(req, res, next) {
       },
     });
 
-    // Kirim OTP baru ke WA owner (fire-and-forget)
+    // Kirim OTP baru ke WA owner (HARUS await — Vercel serverless)
     const ownerPhone = process.env.ADMIN_WA_NUMBER;
     if (ownerPhone) {
       const message = buildOtpMessage(plainOtp);
-      sendWhatsApp(ownerPhone, message).catch((err) => {
-        console.error('❌ Gagal kirim OTP resend ke WA:', err.message);
-      });
+      try {
+        const result = await sendWhatsApp(ownerPhone, message);
+        if (result && result.status) {
+          console.log('✅ OTP resend berhasil dikirim ke WA admin');
+        } else {
+          console.error('❌ Fonnte resend error:', JSON.stringify(result));
+        }
+      } catch (waErr) {
+        console.error('❌ Gagal kirim OTP resend ke WA:', waErr.message);
+      }
     }
 
     return res.status(200).json({
