@@ -69,6 +69,11 @@ async function login({ email, password }) {
     throw new AppError('Email atau password salah.', 401);
   }
 
+  // Cegah admin login lewat jalur biasa (harus lewat /admin/login untuk 2FA OTP)
+  if (user.role === 'admin') {
+    throw new AppError('Akun admin terdeteksi. Silakan login melalui halaman /admin/login.', 403);
+  }
+
   // Buat access token & refresh token
   const accessToken = signAccessToken({ userId: user.id, role: user.role });
 
