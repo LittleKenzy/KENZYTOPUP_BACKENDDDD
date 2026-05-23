@@ -39,16 +39,6 @@ Server berjalan di: `http://localhost:3000`
 | Architecture | MVC (modular)                |
 
 ---
-
-## 🔑 Akun Demo
-
-| Role  | Email                  | Password   |
-| ----- | ---------------------- | ---------- |
-| Admin | admin@kenzystore.com   | Admin123!  |
-| User  | user@kenzystore.com    | User123!   |
-
----
-
 ## 📋 API Endpoints
 
 ### Health Check
