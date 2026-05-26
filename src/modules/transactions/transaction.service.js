@@ -190,6 +190,9 @@ async function getTransactionById(transactionId, userId) {
       user: {
         select: { id: true, name: true, email: true },
       },
+      droppedCard: {
+        select: { id: true, name: true, description: true, imageUrl: true, rarity: true },
+      },
     },
   });
 
@@ -334,6 +337,11 @@ async function updateTransactionStatus(transactionId, { status, note }) {
         droppedCard = await rollCardDrop(existing.userId, prisma);
         if (droppedCard) {
           console.log(`🃏 User ${existing.userId} mendapat kartu: ${droppedCard.name} [${droppedCard.rarity}]`);
+          // Simpan droppedCardId di transaksi agar user bisa lihat nanti
+          await prisma.transaction.update({
+            where: { id: transactionId },
+            data: { droppedCardId: droppedCard.id },
+          });
         }
       } catch (cardErr) {
         console.warn(`⚠️ Card drop gagal untuk transaksi ${transactionId}:`, cardErr.message);
