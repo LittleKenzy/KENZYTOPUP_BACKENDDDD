@@ -47,6 +47,8 @@ const missionRoutes = require('./modules/missions/mission.route');
 const missionController = require('./modules/missions/mission.controller');
 const pushController = require('./modules/push/push.controller');
 const notificationController = require('./modules/notifications/notification.controller');
+const cardsRouter = require('./modules/cards/cards.router');
+const gamerProfileRouter = require('./modules/gamer-profile/gamerProfile.router');
 const { uploadQrisImage, uploadNewsImage } = require('./middleware/upload');
 const { ensureBuckets } = require('./config/supabase');
 
@@ -139,6 +141,12 @@ app.get('/api/notifications', authenticate, notificationController.getMyNotifica
 app.get('/api/notifications/unread', authenticate, notificationController.getUnreadCount);
 app.patch('/api/notifications/read-all', authenticate, notificationController.markAllAsRead);
 app.patch('/api/notifications/:id/read', authenticate, notificationController.markAsRead);
+
+// --- User: Kartu Kolektibel ---
+app.use('/api/cards', cardsRouter);
+
+// --- User: Profil Gamer ---
+app.use('/api/gamer-profile', gamerProfileRouter);
 
 // ═══════════════════════════════════════════════
 // ADMIN-ONLY ENDPOINTS
@@ -435,6 +443,8 @@ if (env.NODE_ENV !== 'production') {
     console.log('║  • /api/transactions/* — Transactions    ║');
     console.log('║  • /api/missions/*     — Daily Mission   ║');
     console.log('║  • /api/push/*         — Push Notif      ║');
+    console.log('║  • /api/cards/*        — Kartu Koleksi   ║');
+    console.log('║  • /api/gamer-profile  — Profil Game     ║');
     console.log('║  • /api/admin/*        — Admin panel     ║');
     console.log('╚══════════════════════════════════════════╝');
     console.log('');

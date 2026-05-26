@@ -10,6 +10,7 @@ const loyaltyService = require('../loyalty/loyalty.service');
 const flashSaleService = require('../flashsale/flashsale.service');
 const pushService = require('../push/push.service');
 const notificationService = require('../notifications/notification.service');
+const { rollCardDrop } = require('../../utils/cardDrop');
 
 // ─── CREATE TRANSACTION ─────────────────────
 async function createTransaction(userId, { productId, targetId, quantity, paymentMethod, discountCode }, paymentProofFile) {
@@ -312,51 +313,76 @@ async function updateTransactionStatus(transactionId, { status, note }) {
 
   // 4. Jika status berubah ke SUCCESS, berikan poin loyalty + push notification
   let pointsResult = null;
+  let droppedCard = null;
+  
   if (status === 'SUCCESS' && existing.status !== 'SUCCESS') {
+    // Jalankan post-process dalam block try-catch terpisah agar tidak menyebabkan error 500 jika salah satu gagal
     try {
-      pointsResult = await loyaltyService.awardPoints(
-        existing.userId,
-        existing.totalPrice,
-        transactionId
-      );
-    } catch (err) {
-      console.warn(`⚠️ Gagal memberikan poin loyalty: ${err.message}`);
-    }
+      // 4. Berikan poin loyalty
+      try {
+        pointsResult = await loyaltyService.awardPoints(
+          existing.userId,
+          existing.totalPrice,
+          transactionId
+        );
+      } catch (err) {
+        console.warn(`⚠️ Gagal memberikan poin loyalty untuk transaksi ${transactionId}:`, err.message);
+      }
 
-    // 5. Kirim push notification ke user (fire-and-forget)
-    try {
-      const productName = transaction.product?.name || 'Produk';
-      const pointsEarned = pointsResult ? pointsResult.pointsEarned : 0;
-      const pointsText = pointsEarned > 0
-        ? ` Kamu dapat +${pointsEarned} poin.`
-        : '';
+      // 5. Roll kartu kolektibel (40% chance)
+      try {
+        droppedCard = await rollCardDrop(existing.userId, prisma);
+        if (droppedCard) {
+          console.log(`🃏 User ${existing.userId} mendapat kartu: ${droppedCard.name} [${droppedCard.rarity}]`);
+        }
+      } catch (cardErr) {
+        console.warn(`⚠️ Card drop gagal untuk transaksi ${transactionId}:`, cardErr.message);
+      }
 
-      await pushService.sendPushToUser(existing.userId, {
-        title: '✅ Order Berhasil!',
-        body: `${productName} sudah diproses.${pointsText}`,
-        icon: '/icons/icon-192x192.png',
-        data: {
-          type: 'order_confirmed',
-          transactionId,
-          url: '/orders',
-        },
-      });
+      // 6. Kirim push notification & in-app notification (fire-and-forget style)
+      try {
+        const productName = transaction.product?.name || 'Produk';
+        const pointsEarned = pointsResult ? pointsResult.pointsEarned : 0;
+        const pointsText = pointsEarned > 0
+          ? ` Kamu dapat +${pointsEarned} poin.`
+          : '';
+        const cardText = droppedCard
+          ? ` 🃏 Kamu dapat kartu "${droppedCard.name}" [${droppedCard.rarity}]!`
+          : '';
 
-      // 6. Simpan notifikasi in-app
-      await notificationService.createNotification(existing.userId, {
-        type: 'order_status',
-        title: '✅ Order Berhasil!',
-        body: `${productName} untuk ${existing.targetId} sudah diproses.${pointsText}`,
-        data: { transactionId, url: '/riwayat' },
-      });
-    } catch (pushErr) {
-      console.warn(`⚠️ Push notification gagal: ${pushErr.message}`);
+        // Push ke browser (PWA)
+        await pushService.sendPushToUser(existing.userId, {
+          title: '✅ Order Berhasil!',
+          body: `${productName} sudah diproses.${pointsText}${cardText}`,
+          icon: '/icons/icon-192x192.png',
+          data: {
+            type: 'order_confirmed',
+            transactionId,
+            url: '/orders',
+            droppedCard: droppedCard || null,
+          },
+        }).catch(e => console.warn('⚠️ Gagal kirim push:', e.message));
+
+        // Simpan notifikasi in-app
+        await notificationService.createNotification(existing.userId, {
+          type: 'order_status',
+          title: '✅ Order Berhasil!',
+          body: `${productName} untuk ${existing.targetId} sudah diproses.${pointsText}${cardText}`,
+          data: { transactionId, url: '/riwayat', droppedCard: droppedCard || null },
+        }).catch(e => console.warn('⚠️ Gagal create notification in-app:', e.message));
+        
+      } catch (notifErr) {
+        console.warn(`⚠️ Notifikasi gagal untuk transaksi ${transactionId}:`, notifErr.message);
+      }
+    } catch (criticalErr) {
+      console.error(`❌ Critical error in post-success processing #${transactionId}:`, criticalErr.message);
     }
   }
 
   return {
     ...transaction,
     pointsResult,
+    card: droppedCard || null,
   };
 }
 

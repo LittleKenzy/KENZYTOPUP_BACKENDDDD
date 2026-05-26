@@ -36,6 +36,8 @@ model User {
   pushSubscriptions  PushSubscription[] // Web push notification subscriptions
   notifications      Notification[]     // In-app notifications
   otpSessions        OtpSession[]       // 2FA OTP sessions untuk login admin
+  userCards          UserCard[]         // Kartu kolektibel yang dimiliki user
+  gamerProfiles      GamerProfile[]     // Profil game user (1 per game)
 }
 
 // ─── OTP SESSION (2FA Admin Login) ──────────
@@ -289,4 +291,59 @@ model Notification {
 
   @@index([userId])
   @@index([isRead])
+}
+
+// ─── CARD (Kartu Kolektibel) ────────────────
+// Pool kartu yang bisa didapatkan user saat top-up berhasil
+model Card {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  imageUrl    String
+  rarity      Rarity   @default(COMMON)
+  createdAt   DateTime @default(now())
+
+  userCards   UserCard[]
+}
+
+// ─── USER CARD (Kartu yang dimiliki user) ───
+// Junction table: 1 user hanya bisa punya 1 copy tiap kartu
+model UserCard {
+  id         String   @id @default(cuid())
+  userId     String
+  cardId     String
+  obtainedAt DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card       Card     @relation(fields: [cardId], references: [id])
+
+  @@unique([userId, cardId])
+}
+
+// ─── GAMER PROFILE ──────────────────────────
+// Profil akun game user (1 akun per game)
+// Digunakan untuk auto-fill form order
+model GamerProfile {
+  id           String   @id @default(cuid())
+  userId       String
+  gameId       String   // ID game di sistem (misal: "mobile-legends")
+  gameName     String
+  gameIcon     String?
+  inGameUserId String   // User ID / UID in-game
+  serverOrZone String?  // Server ID, opsional
+  nickname     String?  // Nickname opsional
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameId])
+}
+
+// ─── RARITY ENUM ────────────────────────────
+enum Rarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
 }

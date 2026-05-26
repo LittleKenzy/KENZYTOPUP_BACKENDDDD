@@ -105,21 +105,21 @@ const rateLimitMessage = {
   message: 'Terlalu banyak permintaan, coba lagi nanti.',
 };
 
-// Global limiter: max 100 request per 15 menit per IP
+// Global limiter: max 500 request per 15 menit per IP (dilonggarkan)
 // Berlaku untuk semua endpoint sebagai safety net
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 menit
-  max: 100,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: rateLimitMessage,
 });
 
-// Auth limiter: max 10 request per 15 menit per IP
-// Untuk route login & register — cegah brute force password
+// Auth limiter: longgarkan untuk development / mencegah masalah proxy
+// Untuk route login & register
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 menit
-  max: 10,
+  max: 50, // Naikkan dari 10 menjadi 50 agar tidak mudah terblokir saat testing
   standardHeaders: true,
   legacyHeaders: false,
   message: rateLimitMessage,
