@@ -23,6 +23,8 @@ const {
   authLimiter,
   orderLimiter,
   pushSubscribeLimiter,
+  tradeCreateLimiter,
+  tradeConfirmLimiter,
 } = require('./middleware/security');
 
 // ─── Existing middleware ─────────────────────
@@ -49,6 +51,9 @@ const pushController = require('./modules/push/push.controller');
 const notificationController = require('./modules/notifications/notification.controller');
 const cardsRouter = require('./modules/cards/cards.router');
 const gamerProfileRouter = require('./modules/gamer-profile/gamerProfile.router');
+const tradeRouter = require('./modules/trade/trade.router');
+const wishlistRouter = require('./modules/trade/wishlist.router');
+const { expireOldTrades } = require('./modules/trade/expireTrades');
 const { uploadQrisImage, uploadNewsImage } = require('./middleware/upload');
 const { ensureBuckets } = require('./config/supabase');
 
@@ -147,6 +152,12 @@ app.use('/api/cards', cardsRouter);
 
 // --- User: Profil Gamer ---
 app.use('/api/gamer-profile', gamerProfileRouter);
+
+// --- User: Wishlist & Trade Kartu ---
+app.use('/api/wishlist', wishlistRouter);
+// Trade routes with specific rate limiters on create & confirm
+// Rate limiters applied AFTER authenticate (so req.user is available for keyGenerator)
+app.use('/api/trade', tradeRouter);
 
 // ═══════════════════════════════════════════════
 // ADMIN-ONLY ENDPOINTS
@@ -445,12 +456,28 @@ if (env.NODE_ENV !== 'production') {
     console.log('║  • /api/push/*         — Push Notif      ║');
     console.log('║  • /api/cards/*        — Kartu Koleksi   ║');
     console.log('║  • /api/gamer-profile  — Profil Game     ║');
+    console.log('║  • /api/wishlist/*     — Wishlist Kartu  ║');
+    console.log('║  • /api/trade/*        — Trade Kartu     ║');
     console.log('║  • /api/admin/*        — Admin panel     ║');
     console.log('╚══════════════════════════════════════════╝');
     console.log('');
 
     // Auto-create Supabase storage buckets
     await ensureBuckets();
+
+    // ─── CRON: Expire old trade offers (setiap jam) ──────
+    setInterval(async () => {
+      try {
+        await expireOldTrades();
+      } catch (err) {
+        console.error('❌ Expire trades cron error:', err.message);
+      }
+    }, 60 * 60 * 1000); // Setiap 1 jam
+
+    // Jalankan sekali saat startup untuk bersihkan yang sudah expired
+    expireOldTrades().catch((err) => {
+      console.error('❌ Initial expire trades error:', err.message);
+    });
   });
 }
 

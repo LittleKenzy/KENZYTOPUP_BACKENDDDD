@@ -200,6 +200,36 @@ const adminResendOtpLimiter = rateLimit({
   },
 });
 
+// ─── TRADE RATE LIMITERS ────────────────────────────────────────
+// Rate limiter khusus untuk trade endpoint
+
+// Create trade limiter: max 10 per jam per user
+// Keyed by userId (dari JWT) bukan IP, agar rate limit per user
+const tradeCreateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 jam
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.userId || req.ip,
+  message: {
+    success: false,
+    message: 'Terlalu banyak pembuatan trade. Maksimal 10 per jam. Coba lagi nanti.',
+  },
+});
+
+// Confirm trade limiter: max 20 per jam per user
+const tradeConfirmLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 jam
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.userId || req.ip,
+  message: {
+    success: false,
+    message: 'Terlalu banyak konfirmasi trade. Maksimal 20 per jam. Coba lagi nanti.',
+  },
+});
+
 module.exports = {
   // Helmet
   helmetMiddleware,
@@ -222,5 +252,8 @@ module.exports = {
   adminLoginLimiter,
   adminVerifyOtpLimiter,
   adminResendOtpLimiter,
-};
 
+  // Trade rate limiters
+  tradeCreateLimiter,
+  tradeConfirmLimiter,
+};

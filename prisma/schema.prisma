@@ -4,7 +4,8 @@
 // ============================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -38,6 +39,9 @@ model User {
   otpSessions        OtpSession[]       // 2FA OTP sessions untuk login admin
   userCards          UserCard[]         // Kartu kolektibel yang dimiliki user
   gamerProfiles      GamerProfile[]     // Profil game user (1 per game)
+  wishlist           Wishlist[]         // Kartu yang diinginkan user
+  tradeOffers        TradeOffer[] @relation("TradeOfferer")  // Trade yang dibuat user
+  tradeMatches       TradeOffer[] @relation("TradeMatched")  // Trade yang di-match ke user
 }
 
 // ─── OTP SESSION (2FA Admin Login) ──────────
@@ -307,6 +311,9 @@ model Card {
 
   userCards     UserCard[]
   transactions Transaction[]  // Transaksi yang mendrop kartu ini
+  wishlists    Wishlist[]     // User yang menginginkan kartu ini
+  offeredIn    TradeOffer[] @relation("OfferedCard")  // Trade yang menawarkan kartu ini
+  wantedIn     TradeOffer[] @relation("WantedCard")   // Trade yang meminta kartu ini
 }
 
 // ─── USER CARD (Kartu yang dimiliki user) ───
@@ -349,4 +356,55 @@ enum Rarity {
   RARE
   EPIC
   LEGENDARY
+}
+
+// ─── WISHLIST (Kartu yang diinginkan user) ──
+// User bisa bookmark kartu yang mereka inginkan untuk trading
+model Wishlist {
+  id        String   @id @default(uuid())
+  userId    String
+  cardId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id])
+
+  @@unique([userId, cardId])
+  @@index([cardId])
+}
+
+// ─── TRADE OFFER (Penawaran tukar kartu) ────
+// User bisa menawarkan kartu yang dimiliki untuk ditukar dengan kartu lain
+model TradeOffer {
+  id                  String      @id @default(uuid())
+  offererId           String
+  offeredCardId       String
+  wantedCardId        String
+  status              TradeStatus @default(OPEN)
+  matchedUserId       String?
+  confirmedByOfferer  Boolean     @default(false)
+  confirmedByMatcher  Boolean     @default(false)
+  expiresAt           DateTime
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  offerer     User  @relation("TradeOfferer", fields: [offererId], references: [id])
+  matchedUser User? @relation("TradeMatched", fields: [matchedUserId], references: [id])
+  offeredCard Card  @relation("OfferedCard", fields: [offeredCardId], references: [id])
+  wantedCard  Card  @relation("WantedCard", fields: [wantedCardId], references: [id])
+
+  @@index([offererId])
+  @@index([status])
+  @@index([offeredCardId])
+  @@index([wantedCardId])
+}
+
+// ─── TRADE STATUS ENUM ──────────────────────
+enum TradeStatus {
+  OPEN
+  MATCHED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  EXPIRED
 }

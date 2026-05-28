@@ -21,6 +21,7 @@
   "author": "Kenzy Store",
   "license": "MIT",
   "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^6.8.2",
     "@supabase/supabase-js": "^2.105.4",
     "bcrypt": "^5.1.1",
@@ -33,6 +34,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.7",
+    "pg": "^8.21.0",
     "sharp": "^0.34.5",
     "undici": "^8.2.0",
     "web-push": "^3.6.7",
